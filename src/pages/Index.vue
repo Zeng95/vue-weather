@@ -23,12 +23,12 @@
       <div class="col text-white text-center">
         <!-- Location -->
         <div class="location text-h4">
-          {{ weatherData.name }}, {{ weatherData.sys.country }}
+          {{ weatherData.name }}
         </div>
 
         <!-- Full Date -->
-        <div class="date text-h6 text-weight-light text-italic">
-          {{ currentFullDate }}
+        <div class="date text-h6 text-weight-light">
+          {{ `${day}, ${hours}:${minutes} ${period}` }}
         </div>
 
         <!-- Temperature -->
@@ -38,14 +38,18 @@
         </div>
 
         <!-- Weather -->
-        <div class="weather text-h3 text-weight-bold text-italic">
-          {{ weatherData.weather[0].main }}
-        </div>
-      </div>
+        <div class="weather flex justify-center items-center">
+          <!-- Weather Icon -->
+          <img
+            :src="weatherIconUrl"
+            :alt="weatherData.weather[0].description"
+          />
 
-      <!-- Weather icon -->
-      <div class="col text-center">
-        <img :src="weatherIconUrl" :alt="weatherData.weather[0].description" />
+          <!-- Weather Type -->
+          <span class="text-h4 text-weight-bold">{{
+            weatherData.weather[0].main
+          }}</span>
+        </div>
       </div>
     </template>
 
@@ -81,43 +85,12 @@ export default {
       weatherData: null, // 天气相关的数据
       weatherIconUrl: null,
       latitude: null, // 纬度
-      longitude: null // 经度
-    }
-  },
+      longitude: null, // 经度
 
-  computed: {
-    currentFullDate() {
-      const now = new Date()
-      const months = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ]
-      const days = [
-        'Sunday',
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday'
-      ]
-
-      const year = now.getFullYear()
-      const month = months[now.getMonth()]
-      const day = days[now.getDay()]
-      const date = now.getDate()
-
-      return `${day}, ${month} ${date}, ${year}`
+      period: '',
+      day: '',
+      hours: 0,
+      minutes: 0
     }
   },
 
@@ -163,7 +136,33 @@ export default {
           console.log('error: ', error)
         }
       )
+    },
+    updateDateAndTime() {
+      const now = new Date()
+      const days = [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday'
+      ]
+
+      this.day = days[now.getDay()]
+      this.minutes = now.getMinutes()
+
+      this.hours = now.getHours() % 12 || 12
+      this.period = now.getHours() >= 12 ? 'pm' : 'am'
     }
+  },
+
+  created() {
+    this.interval = setInterval(this.updateDateAndTime, 1000)
+  },
+
+  beforeDestroy() {
+    clearInterval(this.interval)
   }
 }
 </script>
@@ -171,8 +170,6 @@ export default {
 <style lang="sass" scoped>
 .q-page
   background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.75))
-  .q-form
-    box-shadow: 0 0 16px rgba(0, 0, 0, 0.25)
   .location
     text-shadow: 1px 3px rgba(0, 0, 0, 0.25)
   .temperature
@@ -182,8 +179,6 @@ export default {
     box-shadow: 3px 6px rgba(0, 0, 0, 0.25)
   .degree
     top: -44px
-  .weather
-    text-shadow: 3px 6px rgba(0, 0, 0, 0.25)
   .hide
     flex: 0 0 110px
 </style>
