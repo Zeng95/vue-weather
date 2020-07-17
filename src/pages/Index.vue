@@ -18,37 +18,53 @@
     </div>
 
     <!-- It has weather data -->
-    <template v-if="weatherData">
-      <!-- Information -->
+    <template v-if="currentWeatherData">
       <div class="col text-white text-center">
         <!-- Location -->
         <div class="location text-h4">
-          {{ weatherData.name }}
+          {{ currentWeatherData.name }}
         </div>
 
         <!-- Full Date -->
         <div class="date text-h6 text-weight-light">
-          {{ `${day}, ${hours}:${minutes} ${period}` }}
+          {{ `${day}, ${hour}:${minutes} ${period}` }}
         </div>
 
-        <!-- Temperature -->
-        <div class="temperature text-h1 text-weight-bolder q-my-lg q-pa-lg">
-          <span>{{ Math.round(weatherData.main.temp) }}</span>
-          <span class="degree text-h4 relative-position">&deg;C</span>
-        </div>
+        <div class="flex justify-center items-center">
+          <div class="q-mr-xl">
+            <!-- Weather -->
+            <div class="weather flex justify-center items-center">
+              <!-- Weather Icon -->
+              <img
+                :src="weatherIconUrl"
+                :alt="currentWeatherData.weather[0].description"
+              />
 
-        <!-- Weather -->
-        <div class="weather flex justify-center items-center">
-          <!-- Weather Icon -->
-          <img
-            :src="weatherIconUrl"
-            :alt="weatherData.weather[0].description"
-          />
+              <!-- Weather Type -->
+              <span class="text-h4 text-weight-bold">
+                {{ currentWeatherData.weather[0].main }}
+              </span>
+            </div>
 
-          <!-- Weather Type -->
-          <span class="text-h4 text-weight-bold">{{
-            weatherData.weather[0].main
-          }}</span>
+            <!-- Temperature -->
+            <div class="temperature text-h1 text-weight-bolder q-pa-lg">
+              <span>{{ Math.round(currentWeatherData.main.temp) }}</span>
+
+              <!-- Symbol -->
+              <span class="degree text-h4 relative-position">&deg;C</span>
+            </div>
+          </div>
+
+          <div class="text-h5 flex column">
+            <!-- Low Temperature -->
+            <span class="low-temp q-pb-sm">
+              {{ Math.round(currentWeatherData.main.temp_min) }}&deg;&nbsp;C
+            </span>
+            <!-- High Temperature -->
+            <span class="high-temp q-mt-sm">
+              {{ Math.round(currentWeatherData.main.temp_max) }}&deg;&nbsp;C
+            </span>
+          </div>
         </div>
       </div>
     </template>
@@ -68,12 +84,19 @@
     </template>
 
     <!-- Hidden Div -->
-    <div class="col hide"></div>
+    <div class="col chart-container">
+      <canvas v-show="hourlyForecastData" ref="chart"></canvas>
+    </div>
   </q-page>
 </template>
 
 <script>
-import { getWeatherByGeoCoord, getWeatherByCityName } from '../api/weather'
+import Chart from 'chart.js'
+import {
+  getHourlyForecastByCoord,
+  getCurrentWeatherByCoord,
+  getCurrentWeatherByCityName
+} from '../api/weather'
 
 export default {
   name: 'PageIndex',
@@ -82,15 +105,17 @@ export default {
     return {
       search: '',
 
-      weatherData: null, // 天气相关的数据
+      hourlyForecastData: null,
+      currentWeatherData: null, // 天气相关的数据
       weatherIconUrl: null,
-      latitude: null, // 纬度
-      longitude: null, // 经度
 
       period: '',
       day: '',
-      hours: 0,
-      minutes: 0
+      hour: 0,
+      minutes: 0,
+
+      hours: [],
+      temps: []
     }
   },
 
@@ -99,12 +124,26 @@ export default {
       this.$q.loading.show()
 
       try {
-        const response = await getWeatherByCityName(this.search)
+        const res1 = await getCurrentWeatherByCityName(this.search)
+        const res2 = await getHourlyForecastByCoord(
+          res1.data.coord.lat,
+          res1.data.coord.lon
+        )
 
-        this.weatherData = response.data
-        this.weatherIconUrl = `http://openweathermap.org/img/wn/${response.data.weather[0].icon}@2x.png`
+        // 过滤小时
+        const result = res2.data.hourly.filter((item, index) => {
+          if (index < 6) return item
+        })
 
-        this.$emit('getWeather', response.data)
+        this.weatherIconUrl = `http://openweathermap.org/img/wn/${res1.data.weather[0].icon}@2x.png`
+        this.currentWeatherData = res1.data
+        this.hourlyForecastData = result
+
+        this.getHours(this.hourlyForecastData)
+        this.getTemps(this.hourlyForecastData)
+        this.createChart()
+
+        this.$emit('getWeather', this.currentWeatherData)
       } catch (error) {
         console.log('error: ', error)
       } finally {
@@ -118,24 +157,49 @@ export default {
       window.navigator.geolocation.getCurrentPosition(
         async position => {
           try {
-            const { latitude, longitude } = position.coords
-            const response = await getWeatherByGeoCoord(latitude, longitude)
+            const { latitude: lat, longitude: lon } = position.coords
+            const res1 = await getHourlyForecastByCoord(lat, lon)
+            const res2 = await getCurrentWeatherByCoord(lat, lon)
 
-            this.weatherData = response.data
-            this.weatherIconUrl = `http://openweathermap.org/img/wn/${response.data.weather[0].icon}@2x.png`
+            // 过滤小时
+            const result = res1.data.hourly.filter((item, index) => {
+              if (index < 6) return item
+            })
 
-            this.$emit('getWeather', response.data)
+            this.weatherIconUrl = `http://openweathermap.org/img/wn/${res2.data.weather[0].icon}@2x.png`
+            this.currentWeatherData = res2.data
+            this.hourlyForecastData = result
+
+            this.getHours(this.hourlyForecastData)
+            this.getTemps(this.hourlyForecastData)
+            this.createChart()
+
+            this.$emit('getWeather', this.currentWeatherData)
           } catch (error) {
-            console.log('error: ', error)
+            console.error(error)
           } finally {
             this.$q.loading.hide()
           }
         },
         error => {
           this.$q.loading.hide()
-          console.log('error: ', error)
+          console.error(error)
         }
       )
+    },
+    // 获取用于 Chat.js 的小时数组
+    getHours(data) {
+      this.hours = data.map(item => {
+        const hour = new Date(item.dt * 1000).getHours() % 12 || 12
+
+        if (hour === this.hour) return 'NOW'
+
+        return hour + this.period
+      })
+    },
+    // 获取用于 Chat.js 的温度数组
+    getTemps(data) {
+      this.temps = data.map(item => Math.round(item.temp))
     },
     updateDateAndTime() {
       const now = new Date()
@@ -149,11 +213,60 @@ export default {
         'Saturday'
       ]
 
-      this.day = days[now.getDay()]
-      this.minutes = now.getMinutes()
+      const currentMinutes = now.getMinutes()
+      const currentHours = now.getHours()
 
-      this.hours = now.getHours() % 12 || 12
-      this.period = now.getHours() >= 12 ? 'pm' : 'am'
+      this.day = days[now.getDay()]
+      this.minutes = currentMinutes < 10 ? `0${currentMinutes}` : currentMinutes
+
+      this.hour = currentHours % 12 || 12
+      this.period = currentHours >= 12 ? 'pm' : 'am'
+    },
+    createChart() {
+      const ctx = this.$refs.chart.getContext('2d')
+      const myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: this.hours,
+          datasets: [
+            {
+              backgroundColor: 'white',
+              borderColor: 'rgba(255, 255, 255, 0.3)',
+              borderDash: [8, 4],
+              fill: false,
+              data: this.temps
+            }
+          ]
+        },
+        options: {
+          legend: {
+            display: false
+          },
+          scales: {
+            xAxes: [
+              {
+                gridLines: {
+                  color: 'rgba(255, 255, 255, 0.2)',
+                  drawBorder: false
+                },
+                ticks: {
+                  fontColor: 'white'
+                }
+              }
+            ],
+            yAxes: [
+              {
+                gridLines: {
+                  display: false
+                },
+                ticks: {
+                  display: false
+                }
+              }
+            ]
+          }
+        }
+      })
     }
   },
 
@@ -179,6 +292,8 @@ export default {
     box-shadow: 3px 6px rgba(0, 0, 0, 0.25)
   .degree
     top: -44px
-  .hide
-    flex: 0 0 110px
+  .low-temp
+    border-bottom: 1px solid rgba(255, 255, 255, 0.25)
+  .chart-container
+    position: relative
 </style>

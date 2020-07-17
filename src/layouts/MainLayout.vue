@@ -59,8 +59,8 @@ export default {
   transition: all .4s ease-in-out
   &.clear
     background: #51A4DB  /* fallback for old browsers */
-    background: -webkit-linear-gradient(to bottom, #51A4DB, #63AFDE, #73BAE1)  /* Chrome 10-25, Safari 5.1-6 */
-    background: linear-gradient(to bottom, #51A4DB, #63AFDE, #73BAE1) /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+    background: -webkit-linear-gradient(to bottom, #51A4DB, #66B1DF, #73BAE1)  /* Chrome 10-25, Safari 5.1-6 */
+    background: linear-gradient(to bottom, #51A4DB, #66B1DF, #73BAE1) /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
     .q-page
       background-image: unset
   &.fog
