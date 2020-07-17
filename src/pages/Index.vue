@@ -83,7 +83,7 @@
       </div>
     </template>
 
-    <!-- Hidden Div -->
+    <!-- Chart -->
     <div class="col chart-container">
       <canvas v-show="hourlyForecastData" ref="chart"></canvas>
     </div>
